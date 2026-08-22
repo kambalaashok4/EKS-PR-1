@@ -1,0 +1,99 @@
+name: Catalog Service CI/CD
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'src/catalog/**'
+      - '.github/workflows/catalog.yml'
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - 'src/catalog/**'
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  SERVICE_NAME: catalog
+  SERVICE_DIR: src/catalog
+  ECR_REPOSITORY: catalog/retail-store-catalog
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+
+jobs:
+  test:
+    name: Test Catalog (Go)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/catalog
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+          cache-dependency-path: src/catalog/go.sum
+
+      - name: Run Go Unit Tests
+        run: |
+          go vet ./...
+          go test -v -race ./...
+
+  build-and-deploy:
+    name: Build, Push ECR 
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Debug OIDC token claims
+        run: |
+          curl -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq .
+        
+      - name: debug jwt
+        run: |
+          TOKEN=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq -r '.value')
+          echo $TOKEN | cut -d. -f2 | base64 -d 2>/dev/null | jq .
+
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and Push Docker Image to ECR
+        uses: docker/build-push-action@v5
+        with:
+          context: src/catalog
+          push: true
+          tags: |
+            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # - name: Update Kubeconfig for EKS
+      #   run: |
+      #     aws eks update-kubeconfig --name ${{ vars.EKS_CLUSTER_NAME }} --region ${{ vars.AWS_REGION }}
+
+      # - name: Deploy to Amazon EKS
+      #   run: |
+      #     kubectl set image deployment/catalog \
+      #       catalog=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }} \
+      #       -n ${{ vars.K8S_NAMESPACE }}
+      #     kubectl rollout status deployment/catalog -n ${{ vars.K8S_NAMESPACE }} --timeout=180s
