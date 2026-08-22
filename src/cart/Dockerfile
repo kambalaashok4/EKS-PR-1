@@ -20,11 +20,12 @@ WORKDIR /
 COPY .mvn .mvn
 COPY mvnw .
 COPY pom.xml .
+RUN chmod +x mvnw
 
 RUN ./mvnw dependency:go-offline -B -q
 
 COPY ./src ./src
-RUN chmod +x mvnw
+
 RUN ./mvnw -DskipTests package -q && \
     mv /target/carts-0.0.1-SNAPSHOT.jar /app.jar
 
