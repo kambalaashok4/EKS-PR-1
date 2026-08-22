@@ -18,9 +18,11 @@
 
 package com.amazon.sample.carts.services;
 
+import com.amazon.sample.carts.config.TestAwsCredentialsConfig;
 import org.junit.jupiter.api.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.GenericContainer;
@@ -36,6 +38,7 @@ import org.testcontainers.utility.DockerImageName;
 )
 @Testcontainers
 @Tag("integration")
+@Import(TestAwsCredentialsConfig.class)
 public class DynamoDBCartServiceIntegrationTest extends AbstractServiceTests {
 
   @Container
