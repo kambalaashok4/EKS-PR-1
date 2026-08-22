@@ -19,6 +19,7 @@ permissions:
 env:
   SERVICE_NAME: ui
   ECR_REPOSITORY: retail-store-ui
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
 
 jobs:
   test:
@@ -75,15 +76,15 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Update Kubeconfig for EKS
-        run: |
-          aws eks update-kubeconfig --name ${{ vars.EKS_CLUSTER_NAME }} --region ${{ vars.AWS_REGION }}
+      # - name: Update Kubeconfig for EKS
+      #   run: |
+      #     aws eks update-kubeconfig --name ${{ vars.EKS_CLUSTER_NAME }} --region ${{ vars.AWS_REGION }}
 
-      - name: Deploy using Helm (from repo charts/ui)
-        run: |
-          helm upgrade --install ui ./charts/ui \
-            --namespace ${{ vars.K8S_NAMESPACE }} \
-            --create-namespace \
-            --set image.repository=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }} \
-            --set image.tag=${{ github.sha }} \
-            --wait --timeout 3m
+      # - name: Deploy using Helm (from repo charts/ui)
+      #   run: |
+      #     helm upgrade --install ui ./charts/ui \
+      #       --namespace ${{ vars.K8S_NAMESPACE }} \
+      #       --create-namespace \
+      #       --set image.repository=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }} \
+      #       --set image.tag=${{ github.sha }} \
+      #       --wait --timeout 3m
