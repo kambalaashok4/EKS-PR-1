@@ -6,7 +6,7 @@ on:
     paths:
       - 'src/ui/**'
       - 'charts/ui/**'
-      - '.github/workflows/ui-ci-cd.yml'
+      - '.github/workflows/ui.yml'
   pull_request:
     branches: [ "main" ]
     paths:
