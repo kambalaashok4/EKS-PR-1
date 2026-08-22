@@ -18,7 +18,7 @@ permissions:
 
 env:
   SERVICE_NAME: ui
-  ECR_REPOSITORY: retail-store-ui
+  ECR_REPOSITORY: ui/retail-store-ui
   ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
 
 jobs:
@@ -101,4 +101,3 @@ jobs:
       #       --wait --timeout 3m
 
 
-      
