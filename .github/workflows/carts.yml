@@ -4,12 +4,12 @@ on:
   push:
     branches: [ "main" ]
     paths:
-      - 'src/carts/**'
+      - 'src/cart/**'
       - '.github/workflows/carts.yml'
   pull_request:
     branches: [ "main" ]
     paths:
-      - 'src/carts/**'
+      - 'src/cart/**'
 
 permissions:
   id-token: write
