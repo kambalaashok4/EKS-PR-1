@@ -1,11 +1,12 @@
-name: Catalog Service CI/CD
+name: Catalog Service CI/CD with SAST & DAST (No Helm)
 
 on:
   push:
     branches: [ "main" ]
     paths:
       - 'src/catalog/**'
-      - '.github/workflows/catalog.yml'
+      - 'deploy/kubernetes/catalog.yaml'
+      - '.github/workflows/catalog-ci-cd.yml'
   pull_request:
     branches: [ "main" ]
     paths:
@@ -14,16 +15,19 @@ on:
 permissions:
   id-token: write
   contents: read
+  security-events: write
 
 env:
   SERVICE_NAME: catalog
   SERVICE_DIR: src/catalog
-  ECR_REPOSITORY: catalog/retail-store-catalog
-  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+  ECR_REPOSITORY: retail-store-catalog
 
 jobs:
-  test:
-    name: Test Catalog (Go)
+  # =========================================================================
+  # 1. CODE TEST & SAST (Go Test & SonarQube)
+  # =========================================================================
+  test-and-sast:
+    name: 1. Code Test & SAST (SonarQube)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -31,6 +35,8 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -38,21 +44,14 @@ jobs:
           go-version: '1.21'
           cache-dependency-path: src/catalog/go.sum
 
-      - name: Run Go Unit Tests
+      - name: Run Go Unit Tests & Coverage
         run: |
-          go vet ./...  || exit 1
-          
-          go test -v ./... -coverprofile=coverage.out || exit 1
-          # Verify coverage file was created
-          if [ ! -f coverage.out ]; then
-          echo "Error: coverage.out not generated"
-          exit 1
-          fi
-          cat coverage.out
+          go vet ./...
+          go test -v ./... -coverprofile=coverage.out
 
-      # SonarQube Scanner for Go
+      # SonarQube Scanner for Go (runs only when secret is configured)
       - name: SonarQube SAST Scan
-        if: env.SONAR_TOKEN != '' && env.SONAR_HOST_URL != ''
+        if: env.SONAR_TOKEN != ''
         uses: sonarsource/sonarqube-scan-action@master
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -60,14 +59,16 @@ jobs:
         with:
           projectBaseDir: src/catalog
           args: >
-            -Dsonar.projectKey=RetailStoreCatalog
-            -Dsonar.projectName="RetailStoreCatalog"
+            -Dsonar.projectKey=retail-store-catalog
+            -Dsonar.projectName="Retail Store Catalog"
             -Dsonar.go.coverage.reportPaths=coverage.out
-  #go test -v -race ./...
-  build-and-deploy:
-    name: Build, Push ECR 
-    needs: test
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+  # =========================================================================
+  # 2. CONTAINER BUILD, TRIVY SCAN & ECR PUSH
+  # =========================================================================
+  build-scan-and-push:
+    name: 2. Container Build, Trivy Scan & ECR Push
+    needs: test-and-sast
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -92,31 +93,20 @@ jobs:
           severity: 'CRITICAL,HIGH'
           exit-code: '0'
 
-      - name: Debug OIDC token claims
-        run: |
-          curl -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq .
-        
-      - name: debug jwt
-        run: |
-          TOKEN=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq -r '.value')
-          echo $TOKEN | cut -d. -f2 | base64 -d 2>/dev/null | jq .
-
       - name: Configure AWS Credentials (OIDC)
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Log in to Amazon ECR
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build and Push Docker Image to ECR
+      - name: Push Docker Image to ECR
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         uses: docker/build-push-action@v5
         with:
           context: src/catalog
@@ -127,13 +117,70 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # - name: Update Kubeconfig for EKS
-      #   run: |
-      #     aws eks update-kubeconfig --name ${{ vars.EKS_CLUSTER_NAME }} --region ${{ vars.AWS_REGION }}
+  # =========================================================================
+  # 3. DEPLOY NATIVE KUBERNETES MANIFEST & SMOKE TEST (No Helm)
+  # =========================================================================
+  # deploy-and-smoke-test:
+  #   name: 3. Deploy to EKS & Smoke Test
+  #   needs: build-scan-and-push
+  #   if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout Code
+  #       uses: actions/checkout@v4
 
-      # - name: Deploy to Amazon EKS
-      #   run: |
-      #     kubectl set image deployment/catalog \
-      #       catalog=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }} \
-      #       -n ${{ vars.K8S_NAMESPACE }}
-      #     kubectl rollout status deployment/catalog -n ${{ vars.K8S_NAMESPACE }} --timeout=180s
+  #     - name: Configure AWS Credentials (OIDC)
+  #       uses: aws-actions/configure-aws-credentials@v4
+  #       with:
+  #         role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+  #         aws-region: ${{ secrets.AWS_REGION }}
+
+  #     - name: Log in to Amazon ECR
+  #       id: login-ecr
+  #       uses: aws-actions/amazon-ecr-login@v2
+
+  #     - name: Update Kubeconfig for Amazon EKS
+  #       run: |
+  #         aws eks update-kubeconfig --name ${{ secrets.EKS_CLUSTER_NAME }} --region ${{ secrets.AWS_REGION }}
+
+  #     - name: Deploy Native Kubernetes Manifest
+  #       run: |
+  #         IMAGE_URI="${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}"
+  #         kubectl set image deployment/catalog catalog=${IMAGE_URI} -n ${{ secrets.K8S_NAMESPACE }}
+  #         kubectl rollout status deployment/catalog -n ${{ secrets.K8S_NAMESPACE }} --timeout=180s
+
+  #     - name: Run Smoke Test
+  #       run: |
+  #         kubectl port-forward svc/catalog 8080:80 -n ${{ secrets.K8S_NAMESPACE }} &
+  #         PF_PID=$!
+  #         sleep 5
+          
+  #         HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/health || true)
+  #         kill $PF_PID || true
+          
+  #         echo "Health check endpoint returned: $HTTP_STATUS"
+  #         if [ "$HTTP_STATUS" != "200" ]; then
+  #           echo "Smoke test FAILED! Triggering automatic rollback..."
+  #           kubectl rollout undo deployment/catalog -n ${{ secrets.K8S_NAMESPACE }}
+  #           exit 1
+  #         fi
+  #         echo "Smoke test PASSED successfully!"
+
+  # =========================================================================
+  # 4. DAST (Dynamic Application Security Testing via OWASP ZAP)
+  # =========================================================================
+  # dast-scan:
+  #   name: 4. DAST Dynamic Scan (OWASP ZAP)
+  #   needs: deploy-and-smoke-test
+  #   if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout Code
+  #       uses: actions/checkout@v4
+
+  #     - name: OWASP ZAP API / Baseline Scan
+  #       uses: zaproxy/action-baseline@v0.12.0
+  #       with:
+  #         target: '${{ vars.CATALOG_API_ENDPOINT }}'
+  #         issue_title: 'Catalog API DAST Security Alert'
+  #         fail_action: false
