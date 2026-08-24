@@ -52,6 +52,7 @@ jobs:
 
       # SonarQube Scanner for Go
       - name: SonarQube SAST Scan
+        if: env.SONAR_TOKEN != '' && env.SONAR_HOST_URL != ''
         uses: sonarsource/sonarqube-scan-action@master
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
