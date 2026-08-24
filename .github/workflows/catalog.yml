@@ -40,9 +40,15 @@ jobs:
 
       - name: Run Go Unit Tests
         run: |
-          go vet ./...
+          go vet ./...  || exit 1
           
-          go test -v -race -coverprofile=coverage.out ./...
+          go test -v -race -coverprofile=coverage.out ./... || exit 1
+          # Verify coverage file was created
+          if [ ! -f coverage.out ]; then
+          echo "Error: coverage.out not generated"
+          exit 1
+          fi
+          cat coverage.out
 
       # SonarQube Scanner for Go
       - name: SonarQube SAST Scan
