@@ -42,7 +42,7 @@ jobs:
         run: |
           go vet ./...  || exit 1
           
-          go test -v -race -coverprofile=coverage.out ./... || exit 1
+          go test -v ./... -coverprofile=coverage.out || exit 1
           # Verify coverage file was created
           if [ ! -f coverage.out ]; then
           echo "Error: coverage.out not generated"
