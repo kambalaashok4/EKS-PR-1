@@ -56,6 +56,11 @@ func NewController(api *api.CatalogAPI) (*Controller, error) {
 // @Failure 500 {object} httputil.HTTPError
 // @Router /catalog/products [get]
 func (c *Controller) GetProducts(ctx *gin.Context) {
+	if c.api == nil {
+		httputil.NewError(ctx, http.StatusInternalServerError, fmt.Errorf("API not initialized"))
+		return
+	}
+
 	var tags []string
 
 	tagString := ctx.Query("tags")
@@ -100,6 +105,11 @@ func (c *Controller) GetProducts(ctx *gin.Context) {
 // @Failure 500 {object} httputil.HTTPError
 // @Router /catalog/products/{id} [get]
 func (c *Controller) GetProduct(ctx *gin.Context) {
+	if c.api == nil {
+		httputil.NewError(ctx, http.StatusInternalServerError, fmt.Errorf("API not initialized"))
+		return
+	}
+
 	id := ctx.Param("id")
 
 	product, err := c.api.GetProduct(id, ctx.Request.Context())
@@ -123,6 +133,11 @@ func (c *Controller) GetProduct(ctx *gin.Context) {
 // @Failure 500 {object} httputil.HTTPError
 // @Router /catalog/size [get]
 func (c *Controller) CatalogSize(ctx *gin.Context) {
+	if c.api == nil {
+		httputil.NewError(ctx, http.StatusInternalServerError, fmt.Errorf("API not initialized"))
+		return
+	}
+
 	var tags []string
 
 	tagString := ctx.Query("tags")
@@ -154,6 +169,11 @@ func (c *Controller) CatalogSize(ctx *gin.Context) {
 // @Failure 500 {object} httputil.HTTPError
 // @Router /catalog/tags [get]
 func (c *Controller) ListTags(ctx *gin.Context) {
+	if c.api == nil {
+		httputil.NewError(ctx, http.StatusInternalServerError, fmt.Errorf("API not initialized"))
+		return
+	}
+
 	accounts, err := c.api.GetTags(ctx.Request.Context())
 	if err != nil {
 		httputil.NewError(ctx, http.StatusNotFound, err)
@@ -177,6 +197,11 @@ func (c *Controller) ListTags(ctx *gin.Context) {
 // @Failure 500 {object} httputil.HTTPError
 // @Router /catalog/search [get]
 func (c *Controller) SearchProducts(ctx *gin.Context) {
+	if c.api == nil {
+		httputil.NewError(ctx, http.StatusInternalServerError, fmt.Errorf("API not initialized"))
+		return
+	}
+
 	if !c.api.IsSearchEnabled() {
 		httputil.NewError(ctx, http.StatusServiceUnavailable, fmt.Errorf("Search is not enabled"))
 		return
@@ -225,6 +250,11 @@ func (c *Controller) SearchProducts(ctx *gin.Context) {
 // @Failure 500 {object} httputil.HTTPError
 // @Router /catalog/reindex [post]
 func (c *Controller) ReindexProducts(ctx *gin.Context) {
+	if c.api == nil {
+		httputil.NewError(ctx, http.StatusInternalServerError, fmt.Errorf("API not initialized"))
+		return
+	}
+
 	if !c.api.IsSearchEnabled() {
 		httputil.NewError(ctx, http.StatusServiceUnavailable, fmt.Errorf("search is not enabled"))
 		return
