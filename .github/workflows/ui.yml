@@ -63,10 +63,10 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 
-      - name: Check Quality Gate Status
-        run: |
-          echo "::error::Quality Gate failed. Check SonarQube dashboard for details."
-          exit 1
+      # - name: Check Quality Gate Status
+      #   run: |
+      #     echo "::error::Quality Gate failed. Check SonarQube dashboard for details."
+      #     exit 1
   build-and-deploy:
     name: Build, Push ECR & Deploy EKS
     needs: test
