@@ -94,6 +94,13 @@ jobs:
           output: 'trivy-report.json'
           severity: 'CRITICAL,HIGH'
           exit-code: '1'
+
+      - name: Show trivy scan findings
+        if: failure()
+        run: |
+          echo "Trivy scan found vulnerabilities. Please check the report below:"
+          cat trivy-report.json | jq '.Results[].Vulnerabilities[]? | {VulnerabilityID, PkgName, InstalledVersion, FixedVersion, Severity}'
+          
       - name: upload Trivy Scan Report as Artifact
         if: always()
         uses: actions/upload-artifact@v7
