@@ -52,11 +52,15 @@ jobs:
           ./mvnw org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
             -Dsonar.projectKey=restailStore-Ui \
             -Dsonar.projectName="restailStore-Ui"
+            -Dcom.amazonaws.sdk.disableEc2Metadata=true
+            -Dotel.sdk.disabled=true
 
 
       - name: SonarQube Quality Gate Check
         uses: SonarSource/sonarqube-quality-gate-action@v1
-        timeout-minutes: 5
+        with:
+          scanMetadataReportFile: ui/.scannerwork/report-task.txt
+          pollingTimeoutSec: 300
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
