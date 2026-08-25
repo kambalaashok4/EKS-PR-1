@@ -52,6 +52,20 @@ jobs:
           ./mvnw org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
             -Dsonar.projectKey=restailStore-Ui \
             -Dsonar.projectName="restailStore-Ui"
+
+
+      - name: SonarQube Quality Gate Check
+        uses: SonarSource/sonarqube-quality-gate-action@v1
+        timeout-minutes: 5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+      - name: Check Quality Gate Status
+        if: failure()
+        run: |
+          echo "::error::Quality Gate failed. Check SonarQube dashboard for details."
+          exit 1
   build-and-deploy:
     name: Build, Push ECR & Deploy EKS
     needs: test
@@ -77,7 +91,7 @@ jobs:
           image-ref: local-ui:${{ github.sha }}
           format: 'table'
           severity: 'CRITICAL,HIGH'
-          exit-code: '0'
+          exit-code: '1'
 
       - name: Debug OIDC token claims
         run: |
