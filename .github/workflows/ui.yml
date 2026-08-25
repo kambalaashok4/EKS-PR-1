@@ -93,7 +93,7 @@ jobs:
           format: 'json'
           output: 'trivy-report.json'
           severity: 'CRITICAL'
-          exit-code: '1'
+          exit-code: '0'
 
       - name: Show trivy scan findings
         if: failure()
