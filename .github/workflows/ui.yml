@@ -52,7 +52,6 @@ jobs:
           ./mvnw org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
             -Dsonar.projectKey=restailStore-Ui \
             -Dsonar.projectName="restailStore-Ui"
-            -Dotel.sdk.disabled=true
 
 
       - name: SonarQube Quality Gate Check
