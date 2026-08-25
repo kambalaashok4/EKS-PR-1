@@ -57,14 +57,13 @@ jobs:
       - name: SonarQube Quality Gate Check
         uses: SonarSource/sonarqube-quality-gate-action@v1
         with:
-          scanMetadataReportFile: .scannerwork/report-task.txt
+          scanMetadataReportFile: target/sonar/report-task.txt
           pollingTimeoutSec: 300
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 
       - name: Check Quality Gate Status
-        if: failure()
         run: |
           echo "::error::Quality Gate failed. Check SonarQube dashboard for details."
           exit 1
